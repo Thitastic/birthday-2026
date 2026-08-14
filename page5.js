@@ -47,6 +47,9 @@ let page5BlowStart = 0;
 // Thổi liên tục khoảng 0.45 giây sẽ tắt nến
 const PAGE5_BLOW_DURATION_MS = 450;
 
+// Sau khi tắt nến, giữ hint "đã thổi tắt" một lúc rồi mới sang trang 6
+const PAGE5_AFTER_BLOW_HOLD_MS = 1600;
+
 const PAGE5_ALPHA = 0.5;
 
 // Micro điện thoại thường thu âm nhỏ hơn máy tính
@@ -66,6 +69,12 @@ const page5IsBlowing = () => {
 
   return page5Lowpass > PAGE5_THRESHOLD;
 };
+
+// Kết quả isBlowing() của frame hiện tại, tính đúng 1 lần trong
+// page5Animate() rồi dùng lại ở mọi nơi khác (particle, v.v.)
+// để tránh gọi page5IsBlowing() lặp lại nhiều lần/frame làm
+// hỏng bộ lọc làm mượt page5Lowpass.
+let page5BlowingThisFrame = false;
 
 
 // ============================================================
@@ -297,7 +306,7 @@ class Page5FlameParticle {
     // Khi đang thổi, lửa bị đẩy lệch
     if (
       page5Microphone &&
-      page5IsBlowing()
+      page5BlowingThisFrame
     ) {
 
       this.x +=
@@ -425,6 +434,10 @@ function page5Animate() {
     page5UpdateMeterVolume();
   }
 
+  // Tính isBlowing() đúng 1 lần cho cả frame này
+  page5BlowingThisFrame =
+    page5Microphone ? page5IsBlowing() : false;
+
 
   // ==========================================================
   // ĐANG THỔI
@@ -433,7 +446,7 @@ function page5Animate() {
   if (
     !page5CandleBlown &&
     page5Microphone &&
-    page5IsBlowing()
+    page5BlowingThisFrame
   ) {
 
     if (!page5BlowStart) {
@@ -466,6 +479,14 @@ function page5Animate() {
         page5Hint.textContent =
           "✨ Bạn đã thổi tắt ngọn nến! ✨";
       }
+
+      // Không cần micro nữa — tắt sớm để nhả quyền truy cập.
+      page5StopAudio();
+
+      // Giữ dòng chữ một lúc rồi tự chuyển sang trang 6.
+      page5Schedule(() => {
+        window.storyController?.next();
+      }, PAGE5_AFTER_BLOW_HOLD_MS);
     }
 
   }

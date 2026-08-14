@@ -144,9 +144,7 @@
 const startButton = document.getElementById("start");
 
 startButton.addEventListener("click", () => {
-  document.body.dispatchEvent(
-    new CustomEvent("birthday:start")
-  );
+  // Navigation is handled only by the global swipe handler in main.js.
 
   if (motionAnimate && !prefersReducedMotion) {
     // Spring thật (khối lượng/độ cứng/giảm chấn) thay vì cubic-bezier giả lập —

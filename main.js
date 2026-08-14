@@ -1,9 +1,9 @@
 // ============================================================
 // Main: StoryController + điều hướng vuốt (swipe) + khởi động
-// File này ráp 5 section (hero, story, page3, page4, page5) lại thành
-// một câu chuyện có thanh tiến trình + vuốt trái/phải để chuyển trang.
-// Phải load SAU cùng, sau core.js + hero.js + story.js + page3.js +
-// page4.js + page5.js.
+// File này ráp các section (hero, story, page3, page4, page5, page6) lại
+// thành một câu chuyện có thanh tiến trình + vuốt trái/phải để chuyển trang.
+// Phải load SAU cùng, sau core.js + audio.js + hero.js + page1.js +
+// story.js + page3.js + page4.js + page5.js + page6.js.
 // ============================================================
 
 // ---------- StoryController: quản lý thanh tiến trình + timing từng trang ----------
@@ -118,14 +118,19 @@ const storySegments = [
     duration: 0, // trang bìa: chờ người dùng bấm nút hoặc vuốt, không tự trôi
     enter() {
       document.body.setAttribute("data-view", "hero");
+      audioManager.play("hero");
+      requestAnimationFrame(playPage1);
     },
-    exit() {}
+    exit() {
+      resetPage1();
+    }
   },
   {
     id: "story",
     duration: timePhrases.length * 3500,
     enter() {
       document.body.setAttribute("data-view", "story");
+      audioManager.play("story");
       morph?.start();
     },
     exit() {
@@ -138,6 +143,7 @@ const storySegments = [
     _timers: [],
     enter() {
       document.body.setAttribute("data-view", "page3");
+      audioManager.play("page3");
       page3El?.setAttribute("data-bg", "orb");
       // Quả cầu zoom-in + fade-in trước; 2 dòng chữ đều ẩn cho tới khi
       // quả cầu đã ổn định ở vị trí hiện tại.
@@ -192,6 +198,7 @@ const storySegments = [
     duration: 16000, // chạy animation zoom + kéo chữ/ảnh rồi epilogue một lần, không tự chuyển tiếp
     enter() {
       document.body.setAttribute("data-view", "page4");
+      audioManager.play("page4"); // cùng track với page3 → không tua lại
       requestAnimationFrame(playPage4);
     },
     exit() {
@@ -200,23 +207,37 @@ const storySegments = [
   },
   {
     id: "page5",
-    duration: 0, // trang cuối: "1 2 3..." rồi tự chạy cảnh thổi nến, không tự chuyển tiếp
+    duration: 0, // "1 2 3..." rồi tự chạy cảnh thổi nến; tắt nến xong page5.js
+                 // tự gọi storyController.next() để sang trang 6, không cần
+                 // duration ở đây.
     enter() {
       document.body.setAttribute("data-view", "page5");
+      audioManager.stop(); // đang dùng micro để thổi nến → tắt nhạc nền
       requestAnimationFrame(playPage5);
     },
     exit() {
       resetPage5();
+    }
+  },
+  {
+    id: "page6",
+    duration: 0, // trang cuối: hiệu ứng chữ lặp vô hạn, không tự chuyển tiếp
+    enter() {
+      document.body.setAttribute("data-view", "page6");
+      audioManager.play("page6");
+      requestAnimationFrame(playPage6);
+    },
+    exit() {
+      resetPage6();
     }
   }
 ];
 
 const storyController = new StoryController(storySegments, storyBarEl);
 
-// Nút "Mở câu chuyện" ở trang bìa = đi tới trang kế tiếp (story).
-document.body.addEventListener("birthday:start", () => {
-  storyController.next();
-});
+// Section navigation is handled ONLY by the global swipe handler below.
+    // Do not listen for "birthday:start" here: the Hero button can receive a
+    // synthetic click after a swipe, which would otherwise navigate twice.
 
 // ---------- Vuốt phải = tiếp, vuốt trái = trở về ----------
 // Dùng Pointer Events + setPointerCapture để việc vuốt luôn được chính
@@ -231,40 +252,64 @@ function attachSwipeNavigation(target, { onSwipeRight, onSwipeLeft, threshold = 
   let startY = 0;
   let pointerId = null;
 
+  // After a successful navigation, ignore the rest of the current browser
+  // gesture/click sequence. This is deliberately longer than the normal
+  // pointer->click synthesis window.
+  let navigationLockedUntil = 0;
+
+  const stopTracking = () => {
+    tracking = false;
+    pointerId = null;
+  };
+
   target.addEventListener("pointerdown", (e) => {
+    if (Date.now() < navigationLockedUntil) return;
     if (e.pointerType === "mouse" && e.button !== 0) return;
+
     tracking = true;
     pointerId = e.pointerId;
     startX = e.clientX;
     startY = e.clientY;
+
     target.setPointerCapture?.(e.pointerId);
   });
 
   target.addEventListener("pointermove", (e) => {
     if (!tracking || e.pointerId !== pointerId) return;
-    // Chặn cử chỉ cuộn/pan mặc định của trình duyệt trong lúc đang vuốt
-    // để pointerup luôn nhận được toạ độ chính xác.
-    e.preventDefault();
-  }, { passive: false });
-
-  const finish = (e) => {
-    if (!tracking || e.pointerId !== pointerId) return;
-    tracking = false;
-    target.releasePointerCapture?.(e.pointerId);
 
     const dx = e.clientX - startX;
     const dy = e.clientY - startY;
 
-    if (Math.abs(dx) >= threshold && Math.abs(dx) > Math.abs(dy) * 1.15) {
-      if (dx > 0) onSwipeRight?.();
-      else onSwipeLeft?.();
-    }
+    // Only suppress the browser's native gesture once the movement is
+    // clearly horizontal.
+    if (Math.abs(dx) > Math.abs(dy)) e.preventDefault();
+  }, { passive: false });
+
+  const finish = (e) => {
+    if (!tracking || e.pointerId !== pointerId) return;
+
+    const dx = e.clientX - startX;
+    const dy = e.clientY - startY;
+
+    stopTracking();
+    target.releasePointerCapture?.(e.pointerId);
+
+    const horizontal =
+      Math.abs(dx) >= threshold &&
+      Math.abs(dx) > Math.abs(dy) * 1.15;
+
+    if (!horizontal || Date.now() < navigationLockedUntil) return;
+
+    // Lock BEFORE calling StoryController so any synchronous/synthetic
+    // follow-up event cannot navigate a second time.
+    navigationLockedUntil = Date.now() + 900;
+
+    if (dx < 0) onSwipeLeft?.();
+    else onSwipeRight?.();
   };
 
   target.addEventListener("pointerup", finish);
-  target.addEventListener("pointercancel", () => {
-    tracking = false;
-  });
+  target.addEventListener("pointercancel", stopTracking);
 }
 
 attachSwipeNavigation(appEl, {
@@ -272,5 +317,80 @@ attachSwipeNavigation(appEl, {
   onSwipeLeft: () => storyController.next()
 });
 
-// Khởi động: hiện thanh story ngay từ trang bìa (trang 1 / 3).
-storyController.start();
+// ============================================================
+// Section 0: PRELOAD — tải trước ảnh + nhạc trước khi cho vào trang bìa.
+// Lý do:
+//  1) Nếu người dùng lướt nhanh, ảnh/nhạc ở page3-page6 có thể chưa kịp tải.
+//  2) Trình duyệt chỉ cho audio.play() tự phát nếu nằm trong cùng call stack
+//     với một cử chỉ người dùng (click/tap). Bằng cách chờ người dùng bấm
+//     nút "Bắt đầu" rồi MỚI gọi storyController.start() (→ hero.enter() →
+//     audioManager.play("hero")) ngay trong handler click đó, nhạc trang
+//     bìa được phép tự phát thay vì bị chặn bởi autoplay policy.
+// ============================================================
+
+const preloadScreenEl = document.getElementById("preloadScreen");
+const preloadFillEl = document.getElementById("preloadFill");
+const preloadBarEl = document.getElementById("preloadBar");
+const preloadPercentEl = document.getElementById("preloadPercent");
+const preloadStatusTextEl = document.getElementById("preloadStatusText");
+const preloadStartBtn = document.getElementById("preloadStart");
+
+// Gallery dùng images/1.jpg…17.jpg (xem page3.js), page4 dùng thêm 15/18/19,
+// page6 dùng 20 — nên tải trước cả dải 1–20 cho chắc.
+const PRELOAD_IMAGES = Array.from({ length: 20 }, (_, i) => `images/${i + 1}.jpg`);
+// Danh sách audio thật sự khác nhau (page3/page4 dùng chung 1 file → khử trùng).
+const PRELOAD_AUDIO = [...new Set(Object.values(AUDIO_TRACKS))];
+
+function preloadImage(src) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    // Ảnh lỗi/thiếu không được chặn cả màn preload — vẫn resolve bình thường.
+    img.onload = resolve;
+    img.onerror = resolve;
+    img.src = src;
+  });
+}
+
+function runPreload() {
+  const total = PRELOAD_IMAGES.length + PRELOAD_AUDIO.length;
+  let loaded = 0;
+
+  const bump = () => {
+    loaded += 1;
+    const pct = total ? Math.round((loaded / total) * 100) : 100;
+    if (preloadFillEl) preloadFillEl.style.width = pct + "%";
+    if (preloadPercentEl) preloadPercentEl.textContent = pct + "%";
+    preloadBarEl?.setAttribute("aria-valuenow", String(pct));
+  };
+
+  const imageJobs = PRELOAD_IMAGES.map((src) => preloadImage(src).then(bump));
+  const audioJob = audioManager.preload(PRELOAD_AUDIO, bump);
+
+  return Promise.all([...imageJobs, audioJob]);
+}
+
+function dismissPreloadScreen() {
+  preloadScreenEl?.classList.add("is-hidden");
+  preloadScreenEl?.setAttribute("aria-hidden", "true");
+  // Dọn hẳn khỏi DOM sau khi fade-out xong (khớp với transition .6s ở CSS).
+  setTimeout(() => preloadScreenEl?.remove(), 650);
+}
+
+preloadStartBtn?.addEventListener("click", () => {
+  if (preloadStartBtn.hasAttribute("disabled")) return;
+
+  dismissPreloadScreen();
+
+  // 🔊 PHÁT 01.mp3 NGAY KHI BẤM "BẮT ĐẦU"
+  audioManager.play("hero");
+
+  // Mồi các track còn lại để chuyển trang tự động không bị chặn
+  audioManager.primeAllExcept("hero");
+
+  storyController.start();
+});
+
+runPreload().finally(() => {
+  if (preloadStatusTextEl) preloadStatusTextEl.textContent = "Đã sẵn sàng.";
+  preloadStartBtn?.removeAttribute("disabled");
+});

@@ -23,7 +23,7 @@ body {
   overscroll-behavior: none;
   touch-action: none;
   color: #fff;
-  font-family: "Segoe UI", Arial, Helvetica, sans-serif;
+  font-family: "Inter", "Segoe UI", Arial, Helvetica, sans-serif;
 }
 
 button {
@@ -920,7 +920,7 @@ body[data-view="page3"] .story {
 }
 .page3-curved-text{
   fill:#fff;
-  font-family:Arial,"Helvetica Neue",sans-serif;
+  font-family:"Inter",Arial,"Helvetica Neue",sans-serif;
   font-weight:900;
   text-anchor:middle;
   dominant-baseline:middle;
@@ -1283,6 +1283,15 @@ body[data-view="page5"] .page5 {
   pointer-events: auto;
 }
 
+body[data-view="page5"] .page6,
+body[data-view="page4"] .page6,
+body[data-view="page3"] .page6,
+body[data-view="story"] .page6,
+body[data-view="hero"] .page6 {
+  opacity: 0;
+  pointer-events: none;
+}
+
 /* Dòng chữ mở đầu — hiện sẵn khi vào trang, giữ vài giây rồi fade ra để
    nhường chỗ cho cảnh thổi nến. */
 .page5-intro {
@@ -1399,6 +1408,259 @@ body[data-view="page5"] .page5 {
   height: 0;
 }
 
+/* ---------- Page 6: "CHÚC MỪNG SINH NHẬT" — lưới chữ kiểu Kinetic Text Grid ---------- */
+
+.page6 {
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: transparent;
+  opacity: 0;
+  transform: translateY(26px);
+  pointer-events: none;
+  transition: opacity 1.1s cubic-bezier(.16,1,.3,1), transform 1.1s cubic-bezier(.16,1,.3,1);
+}
+
+.page6-veil {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 50% 46%, rgba(4,4,10,.15) 0%, rgba(4,4,10,.5) 58%, rgba(3,3,8,.86) 100%);
+}
+
+body[data-view="page6"] .hero,
+body[data-view="page6"] .story,
+body[data-view="page6"] .page3,
+body[data-view="page6"] .page4 {
+  opacity: 0;
+  pointer-events: none;
+}
+
+body[data-view="page6"] .page5 {
+  opacity: 0;
+  transform: translateY(-26px) scale(.98);
+  pointer-events: none;
+}
+
+body[data-view="page6"] .page6 {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+.page6-grid {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(10px, 2vw, 18px);
+  will-change: transform;
+  transition: opacity 1s cubic-bezier(.16,1,.3,1), transform 1s cubic-bezier(.16,1,.3,1);
+}
+
+.page6-grid.is-hidden {
+  opacity: 0;
+  transform: scale(.94);
+  pointer-events: none;
+}
+
+.page6-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(20px, 5vw, 40px);
+  white-space: nowrap;
+  will-change: transform;
+}
+
+.page6-word {
+  display: inline-block;
+  line-height: 1;
+  font-family: "Inter", "Segoe UI", Arial, Helvetica, sans-serif;
+  font-weight: 800;
+  font-size: clamp(26px, 6.4vw, 58px);
+  letter-spacing: -.01em;
+  color: rgba(255, 255, 255, .82);
+  will-change: clip-path;
+}
+
+.page6-word--center {
+  color: #fff;
+  text-shadow:
+    0 0 24px rgba(255, 94, 200, .35),
+    0 0 46px rgba(85, 223, 255, .2);
+}
+
+@media (max-width: 500px) {
+  .page6-word {
+    font-size: clamp(22px, 8vw, 40px);
+  }
+}
+
+/* ---------- Page 6 (tiếp): vòng chữ xoay quanh ảnh, hiện ra sau khi lưới chữ chạy xong ---------- */
+
+.page6-ring {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  padding-block: clamp(14px, 4vh, 32px);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .6s linear;
+}
+
+.page6-ring.is-visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* ---- Vòng chữ xoay quanh ảnh ở giữa ---- */
+
+.page6-ring-frame {
+  position: relative;
+  width: min(84vw, 380px);
+  aspect-ratio: 1 / 1;
+  flex: 0 0 auto;
+}
+
+.page6-ring-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  animation: page6RingSpin 22s linear infinite;
+  transform-origin: 50% 50%;
+}
+
+.page6-ring-text {
+  font-family: "Inter", "Segoe UI", Arial, Helvetica, sans-serif;
+  font-weight: 700;
+  fill: rgba(255, 255, 255, .88);
+}
+
+.page6-ring-photo {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 200px;
+  height: 200px;
+  transform: translate(-50%, -50%) scale(.55);
+  border-radius: 50%;
+  object-fit: cover;
+  opacity: 0;
+  filter: blur(10px);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, .14),
+    0 18px 60px rgba(0, 0, 0, .55),
+    0 0 46px rgba(255, 94, 200, .28);
+  transition:
+    opacity 1.1s cubic-bezier(.16,1,.3,1),
+    transform 1.1s cubic-bezier(.16,1,.3,1),
+    filter 1.1s cubic-bezier(.16,1,.3,1);
+}
+
+.page6-ring.is-visible .page6-ring-photo {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1);
+  filter: blur(0);
+}
+
+@keyframes page6RingSpin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* ---- Chữ chạy vô hạn trên/dưới, 2 chiều ngược nhau ---- */
+
+.page6-marquee {
+  position: relative;
+  flex: 0 0 auto;
+  width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 1s ease .35s;
+  -webkit-mask-image: linear-gradient(to right, transparent 0%, #000 8%, #000 92%, transparent 100%);
+  mask-image: linear-gradient(to right, transparent 0%, #000 8%, #000 92%, transparent 100%);
+}
+
+.page6-ring.is-visible .page6-marquee {
+  opacity: 1;
+}
+
+.page6-marquee-track {
+  display: inline-flex;
+  width: max-content;
+  will-change: transform;
+  line-height: 2rem;
+}
+
+.page6-marquee-track span {
+  display: inline-block;
+  font-family: "Inter", "Segoe UI", Arial, Helvetica, sans-serif;
+  font-weight: 800;
+  font-size: clamp(20px, 4vw, 34px);
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, .82);
+}
+
+.page6-marquee--top .page6-marquee-track {
+  animation: page6MarqueeLeft 26s linear infinite;
+}
+
+.page6-marquee--bottom .page6-marquee-track {
+  animation: page6MarqueeRight 26s linear infinite;
+}
+
+@keyframes page6MarqueeLeft {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
+@keyframes page6MarqueeRight {
+  from { transform: translateX(-50%); }
+  to { transform: translateX(0); }
+}
+
+@media (max-width: 500px) {
+  .page6-marquee-track {
+    animation-duration: 18s;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page6 {
+    transition: none;
+  }
+
+  .page6-grid,
+  .page6-ring,
+  .page6-ring-photo,
+  .page6-marquee {
+    transition: none;
+  }
+
+  .page6-ring-svg,
+  .page6-marquee-track {
+    animation: none;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .page5,
   .page5-intro,
@@ -1409,7 +1671,7 @@ body[data-view="page5"] .page5 {
 
 /* Larger, readable Vietnamese curved typography */
 .page3-curved-text {
-  font-family: Arial, "Helvetica Neue", sans-serif;
+  font-family: "Inter", Arial, "Helvetica Neue", sans-serif;
   font-weight: 900;
   fill: #fff;
   letter-spacing: -.018em;
@@ -1459,5 +1721,153 @@ body[data-view="page5"] .page5 {
   .page5-flame-canvas {
     width: 240% !important;
     top: 55% !important;
+  }
+}
+/* ============================================================
+   Section 0: PRELOAD — màn tải trước ảnh + nhạc, hiện trước hero.
+   Chặn toàn màn hình (z-index cao nhất) cho tới khi người dùng bấm
+   "Bắt đầu"; đây cũng là cú bấm dùng để mở khoá autoplay cho audio.
+   ============================================================ */
+
+.preload-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 28px;
+  background: #08080c;
+  overflow: hidden;
+  transition: opacity .6s ease;
+}
+
+.preload-screen.is-hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.preload-glow {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+  filter: blur(60px);
+  opacity: .55;
+}
+
+.preload-glow-pink {
+  top: -10%;
+  right: -10%;
+  width: 55vw;
+  height: 55vw;
+  background: radial-gradient(circle, rgba(255, 94, 200, .55), transparent 70%);
+}
+
+.preload-glow-blue {
+  bottom: -14%;
+  left: -12%;
+  width: 60vw;
+  height: 60vw;
+  background: radial-gradient(circle, rgba(85, 223, 255, .4), transparent 70%);
+}
+
+.preload-card {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 340px;
+  padding: 30px 26px 26px;
+  border-radius: 28px;
+  border: 1px solid rgba(255, 255, 255, .08);
+  background: rgba(20, 20, 28, .55);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  text-align: center;
+}
+
+.preload-eyebrow {
+  margin: 0 0 14px;
+  color: rgba(255, 255, 255, .5);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .22em;
+}
+
+.preload-title {
+  margin: 0 0 26px;
+  color: #fff;
+  font-size: 21px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.preload-bar {
+  width: 100%;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .1);
+  overflow: hidden;
+}
+
+.preload-bar__fill {
+  display: block;
+  width: 0%;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--pink), var(--blue));
+  transition: width .25s ease;
+}
+
+.preload-status {
+  margin: 12px 0 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: rgba(255, 255, 255, .55);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: .02em;
+}
+
+.preload-status #preloadPercent {
+  color: #fff;
+  font-variant-numeric: tabular-nums;
+}
+
+.preload-start {
+  width: 100%;
+  padding: 14px 20px;
+  border: 0;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: #09090d;
+  background: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform .2s ease, opacity .2s ease;
+}
+
+.preload-start:active {
+  transform: scale(.96);
+}
+
+.preload-start[disabled] {
+  opacity: .4;
+  cursor: default;
+  pointer-events: none;
+}
+
+.preload-start b {
+  font-size: 15px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .preload-bar__fill {
+    transition: none;
   }
 }
