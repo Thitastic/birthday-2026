@@ -251,22 +251,20 @@ function attachSwipeNavigation(target, { onSwipeRight, onSwipeLeft, threshold = 
   let startX = 0;
   let startY = 0;
   let pointerId = null;
+  let gestureHandled = false;
+  let lockedUntil = 0;
 
-  // After a successful navigation, ignore the rest of the current browser
-  // gesture/click sequence. This is deliberately longer than the normal
-  // pointer->click synthesis window.
-  let navigationLockedUntil = 0;
-
-  const stopTracking = () => {
+  const stop = () => {
     tracking = false;
     pointerId = null;
   };
 
   target.addEventListener("pointerdown", (e) => {
-    if (Date.now() < navigationLockedUntil) return;
+    if (Date.now() < lockedUntil) return;
     if (e.pointerType === "mouse" && e.button !== 0) return;
 
     tracking = true;
+    gestureHandled = false;
     pointerId = e.pointerId;
     startX = e.clientX;
     startY = e.clientY;
@@ -280,36 +278,41 @@ function attachSwipeNavigation(target, { onSwipeRight, onSwipeLeft, threshold = 
     const dx = e.clientX - startX;
     const dy = e.clientY - startY;
 
-    // Only suppress the browser's native gesture once the movement is
-    // clearly horizontal.
     if (Math.abs(dx) > Math.abs(dy)) e.preventDefault();
   }, { passive: false });
 
-  const finish = (e) => {
+  target.addEventListener("pointerup", (e) => {
     if (!tracking || e.pointerId !== pointerId) return;
 
     const dx = e.clientX - startX;
     const dy = e.clientY - startY;
 
-    stopTracking();
+    stop();
     target.releasePointerCapture?.(e.pointerId);
 
     const horizontal =
       Math.abs(dx) >= threshold &&
       Math.abs(dx) > Math.abs(dy) * 1.15;
 
-    if (!horizontal || Date.now() < navigationLockedUntil) return;
+    if (!horizontal || gestureHandled || Date.now() < lockedUntil) return;
 
-    // Lock BEFORE calling StoryController so any synchronous/synthetic
-    // follow-up event cannot navigate a second time.
-    navigationLockedUntil = Date.now() + 900;
+    gestureHandled = true;
+    lockedUntil = Date.now() + 1000;
 
     if (dx < 0) onSwipeLeft?.();
     else onSwipeRight?.();
-  };
+  });
 
-  target.addEventListener("pointerup", finish);
-  target.addEventListener("pointercancel", stopTracking);
+  target.addEventListener("pointercancel", stop);
+
+  // A horizontal swipe can generate a synthetic click on the element
+  // where the gesture started. Never let that click navigate the story.
+  target.addEventListener("click", (e) => {
+    if (Date.now() < lockedUntil) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+  }, true);
 }
 
 attachSwipeNavigation(appEl, {

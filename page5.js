@@ -122,9 +122,14 @@ function page5RequestAudioAccess() {
 
   page5MicRequested = true;
 
-  if (
-    !navigator.mediaDevices?.getUserMedia
-  ) {
+  // Safari cũ có thể không expose mediaDevices nhưng vẫn có
+  // navigator.getUserMedia (prefix).
+  const getUserMedia =
+    navigator.mediaDevices?.getUserMedia?.bind(navigator.mediaDevices) ||
+    navigator.webkitGetUserMedia?.bind(navigator) ||
+    navigator.getUserMedia?.bind(navigator);
+
+  if (!getUserMedia) {
 
     if (page5Hint) {
       page5Hint.textContent =
@@ -134,11 +139,13 @@ function page5RequestAudioAccess() {
     return;
   }
 
-  navigator.mediaDevices
-    .getUserMedia({
-      audio: true
-    })
-
+  getUserMedia({
+    audio: {
+      echoCancellation: false,
+      noiseSuppression: false,
+      autoGainControl: false
+    }
+  })
     .then((stream) => {
 
       page5SetAudioStream(stream);
@@ -172,11 +179,24 @@ function page5SetAudioStream(stream) {
 
   page5MediaStream = stream;
 
-  page5AudioContext =
-    new (
-      window.AudioContext ||
-      window.webkitAudioContext
-    )();
+  const AudioContextClass =
+    window.AudioContext ||
+    window.webkitAudioContext;
+
+  if (!AudioContextClass) {
+    page5Hint && (page5Hint.textContent =
+      "Trình duyệt này không hỗ trợ âm thanh từ micro.");
+    return;
+  }
+
+  page5AudioContext = new AudioContextClass();
+
+  // Safari/iOS thường tạo AudioContext ở trạng thái "suspended".
+  // Resume ngay sau khi getUserMedia cấp quyền.
+  const resumePromise = page5AudioContext.resume?.();
+  if (resumePromise?.catch) {
+    resumePromise.catch(() => {});
+  }
 
   page5Microphone =
     page5AudioContext.createMediaStreamSource(
@@ -196,6 +216,7 @@ function page5SetAudioStream(stream) {
     page5AudioContext.createAnalyser();
 
   page5Analyser.fftSize = 512;
+  page5Analyser.smoothingTimeConstant = 0.18;
 
   page5AnalyserBuffer =
     new Float32Array(
@@ -237,6 +258,28 @@ function page5StopAudio() {
   page5MicRequested = false;
   page5Lowpass = 0;
 }
+
+
+// Safari/iOS có thể suspend AudioContext khi tab/page thay đổi trạng thái.
+// Một cử chỉ người dùng tiếp theo sẽ resume lại context nếu cần.
+function page5ResumeAudioContext() {
+  if (
+    page5AudioContext &&
+    page5AudioContext.state === "suspended"
+  ) {
+    page5AudioContext.resume?.().catch?.(() => {});
+  }
+}
+
+document.addEventListener("touchstart", page5ResumeAudioContext, {
+  passive: true
+});
+document.addEventListener("pointerdown", page5ResumeAudioContext, {
+  passive: true
+});
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden) page5ResumeAudioContext();
+});
 
 
 // ============================================================
@@ -639,6 +682,17 @@ function page5StopCandleScene() {
   page5CandleBlown = false;
   page5BlowStart = 0;
 }
+
+
+// Trên Safari, xin quyền microphone từ một timer có thể bị chặn.
+// Cho phép người dùng chạm vào vùng nến để kích hoạt lại permission
+// trong chính user gesture.
+page5CandleScene?.addEventListener("click", () => {
+  if (!page5MediaStream && !page5CandleBlown) {
+    page5RequestAudioAccess();
+  }
+  page5ResumeAudioContext();
+});
 
 
 // ============================================================
