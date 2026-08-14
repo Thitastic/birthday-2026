@@ -1,12 +1,6 @@
 // ============================================================
 // Section 5: PAGE5 — "1 2 3, hãy cùng chúc mừng..." rồi thổi tắt nến
 // ============================================================
-// Dựng lại từ demo CodePen "blow-candle": canvas vẽ ngọn lửa bằng particle,
-// SVG vẽ cây nến, gooey filter làm các particle dính vào nhau như lửa thật,
-// và AudioContext + AnalyserNode (qua createAudioMeter) để nghe hơi thổi.
-// Khác với bản demo gốc (tự chạy toàn trang, xin quyền micro ngay khi load),
-// ở đây mọi thứ được gói vào playPage5()/resetPage5() để chỉ xin quyền micro
-// và chạy animation khi người dùng thực sự đang ở trang này.
 
 const page5Section = document.getElementById("page5");
 const page5Intro = document.getElementById("page5Intro");
@@ -43,18 +37,26 @@ let page5Analyser = null;
 let page5AnalyserBuffer = null;
 
 let page5Meter = null;
-
 let page5MicRequested = false;
 let page5Lowpass = 0;
 
+// Trạng thái nến
+let page5CandleBlown = false;
+let page5BlowStart = 0;
+
+// Thổi liên tục khoảng 0.45 giây sẽ tắt nến
+const PAGE5_BLOW_DURATION_MS = 450;
+
 const PAGE5_ALPHA = 0.5;
 
-// Độ nhạy nhận biết hơi thổi.
-// Giảm số này nếu muốn dễ thổi tắt hơn.
-const PAGE5_THRESHOLD = 0.09;
+// Micro điện thoại thường thu âm nhỏ hơn máy tính
+const PAGE5_THRESHOLD = 0.035;
 
 
-// Kiểm tra có đang thổi hay không
+// ============================================================
+// KIỂM TRA ĐANG THỔI
+// ============================================================
+
 const page5IsBlowing = () => {
   if (!page5Meter) return false;
 
@@ -66,11 +68,16 @@ const page5IsBlowing = () => {
 };
 
 
-// Đo âm lượng microphone
+// ============================================================
+// ĐO ÂM LƯỢNG MICRO
+// ============================================================
+
 function page5UpdateMeterVolume() {
   if (!page5Analyser || !page5Meter) return;
 
-  page5Analyser.getFloatTimeDomainData(page5AnalyserBuffer);
+  page5Analyser.getFloatTimeDomainData(
+    page5AnalyserBuffer
+  );
 
   let sumSquares = 0;
 
@@ -85,7 +92,8 @@ function page5UpdateMeterVolume() {
   }
 
   page5Meter.volume = Math.sqrt(
-    sumSquares / page5AnalyserBuffer.length
+    sumSquares /
+    page5AnalyserBuffer.length
   );
 }
 
@@ -96,12 +104,18 @@ function page5UpdateMeterVolume() {
 
 function page5RequestAudioAccess() {
 
-  // Nếu microphone đã hoạt động thì không xin lại.
-  if (page5MicRequested || page5MediaStream) return;
+  if (
+    page5MicRequested ||
+    page5MediaStream
+  ) {
+    return;
+  }
 
   page5MicRequested = true;
 
-  if (!navigator.mediaDevices?.getUserMedia) {
+  if (
+    !navigator.mediaDevices?.getUserMedia
+  ) {
 
     if (page5Hint) {
       page5Hint.textContent =
@@ -129,7 +143,7 @@ function page5RequestAudioAccess() {
 
     .catch(() => {
 
-      // Cho phép lần vào Page 5 sau xin quyền lại
+      // Cho phép lần sau xin quyền lại
       page5MicRequested = false;
 
       if (page5Hint) {
@@ -142,7 +156,7 @@ function page5RequestAudioAccess() {
 
 
 // ============================================================
-// KHỞI TẠO AUDIO CONTEXT
+// KHỞI TẠO AUDIO
 // ============================================================
 
 function page5SetAudioStream(stream) {
@@ -156,10 +170,12 @@ function page5SetAudioStream(stream) {
     )();
 
   page5Microphone =
-    page5AudioContext.createMediaStreamSource(stream);
+    page5AudioContext.createMediaStreamSource(
+      stream
+    );
 
 
-  // Lọc tiếng trầm / hơi thổi
+  // Lọc tiếng trầm để nhận hơi thổi
   const filter =
     page5AudioContext.createBiquadFilter();
 
@@ -167,7 +183,6 @@ function page5SetAudioStream(stream) {
   filter.frequency.value = 400;
 
 
-  // Phân tích âm thanh
   page5Analyser =
     page5AudioContext.createAnalyser();
 
@@ -184,7 +199,6 @@ function page5SetAudioStream(stream) {
 
 
   page5Microphone.connect(filter);
-
   filter.connect(page5Analyser);
 }
 
@@ -212,7 +226,6 @@ function page5StopAudio() {
   page5Meter = null;
 
   page5MicRequested = false;
-
   page5Lowpass = 0;
 }
 
@@ -228,10 +241,7 @@ const page5Particles = [];
 
 const PAGE5_MAX_PART_COUNT = 100;
 
-// Tốc độ lửa cháy lại
 const PAGE5_REIGNITE_RATE = 2;
-
-// Cho phép particle giảm xuống
 const PAGE5_MAX_PART_DOWNTIME = 15;
 
 
@@ -284,7 +294,7 @@ class Page5FlameParticle {
     }
 
 
-    // Nếu đang thổi thì lửa bị đẩy lệch
+    // Khi đang thổi, lửa bị đẩy lệch
     if (
       page5Microphone &&
       page5IsBlowing()
@@ -359,14 +369,11 @@ class Page5FlameBase {
 
 
 let page5Base = null;
-
 let page5ParticleCount =
   PAGE5_MAX_PART_COUNT;
 
 let page5RafId = null;
-
 let page5ReigniteIntervalId = null;
-
 let page5CandleInited = false;
 
 
@@ -414,31 +421,69 @@ function page5Animate() {
   );
 
 
-  // Đọc microphone
   if (page5Microphone) {
     page5UpdateMeterVolume();
   }
 
 
-  // Khi thổi → giảm số particle → lửa nhỏ dần
+  // ==========================================================
+  // ĐANG THỔI
+  // ==========================================================
+
   if (
+    !page5CandleBlown &&
     page5Microphone &&
     page5IsBlowing()
   ) {
 
+    if (!page5BlowStart) {
+      page5BlowStart =
+        performance.now();
+    }
+
+
+    // Lửa nhỏ dần
+    page5ParticleCount =
+      Math.max(
+        0,
+        page5ParticleCount - 2
+      );
+
+
+    // Thổi đủ lâu → TẮT NẾN
     if (
-      page5ParticleCount >
-      -PAGE5_MAX_PART_DOWNTIME
+      performance.now() -
+      page5BlowStart >=
+      PAGE5_BLOW_DURATION_MS
     ) {
 
-      page5ParticleCount -= 1;
+      page5CandleBlown = true;
+
+      page5ParticleCount = 0;
+
+
+      if (page5Hint) {
+        page5Hint.textContent =
+          "✨ Bạn đã thổi tắt ngọn nến! ✨";
+      }
     }
+
+  }
+
+  else if (!page5CandleBlown) {
+
+    // Ngừng thổi → reset bộ đếm
+    page5BlowStart = 0;
   }
 
 
-  page5UpdateParticles();
+  // Nếu nến chưa tắt thì tiếp tục vẽ lửa
+  if (!page5CandleBlown) {
 
-  page5Base.update();
+    page5UpdateParticles();
+
+    page5Base.update();
+  }
 }
 
 
@@ -457,7 +502,6 @@ function page5InitCandleOnce() {
   }
 
   page5CandleInited = true;
-
 
   page5Canvas.width =
     page5CW;
@@ -494,15 +538,18 @@ function page5StartCandleScene() {
   page5ParticleCount =
     PAGE5_MAX_PART_COUNT;
 
+  page5CandleBlown = false;
+  page5BlowStart = 0;
+
 
   if (page5Hint) {
 
     page5Hint.textContent =
-      "Đang xin quyền micro... Hãy cho phép micro để thổi tắt nến.";
+      "Hãy thử thổi tắt ngọn nến.";
   }
 
 
-  // XIN QUYỀN MICRO
+  // Xin quyền microphone
   page5RequestAudioAccess();
 
 
@@ -511,13 +558,14 @@ function page5StartCandleScene() {
   }
 
 
-  // Cho lửa cháy lại nhẹ nếu chưa thổi
+  // Không cho nến cháy lại nếu đã tắt
   if (!page5ReigniteIntervalId) {
 
     page5ReigniteIntervalId =
       setInterval(() => {
 
         if (
+          !page5CandleBlown &&
           page5ParticleCount <
           PAGE5_MAX_PART_COUNT
         ) {
@@ -566,6 +614,9 @@ function page5StopCandleScene() {
 
 
   page5StopAudio();
+
+  page5CandleBlown = false;
+  page5BlowStart = 0;
 }
 
 
@@ -621,7 +672,7 @@ function playPage5() {
   }, PAGE5_INTRO_HOLD_MS);
 
 
-  // Sau khi fade → hiện nến + xin micro
+  // Hiện nến + xin quyền micro
   page5Schedule(() => {
 
     page5CandleScene.classList.add(
@@ -635,7 +686,8 @@ function playPage5() {
 
     page5StartCandleScene();
 
-  }, PAGE5_INTRO_HOLD_MS + PAGE5_INTRO_FADE_MS);
+  }, PAGE5_INTRO_HOLD_MS +
+     PAGE5_INTRO_FADE_MS);
 }
 
 

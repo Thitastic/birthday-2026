@@ -1421,3 +1421,43 @@ body[data-view="page5"] .page5 {
   .page3-curved-text--top { font-size: 50px !important; }
   .page3-curved-text--bottom { font-size: 56px !important; }
 }
+
+/* ============================================================
+   PAGE 5 - MOBILE: PHÓNG TO NẾN + NGỌN LỬA
+   ============================================================ */
+
+@media (max-width: 600px) {
+
+  .page5-candle-inner {
+    width: 92vw !important;
+    max-width: none !important;
+  }
+
+  .page5-flame-canvas {
+    width: 200% !important;
+    max-width: none !important;
+
+    /* Đẩy vùng lửa lên một chút */
+    top: 55% !important;
+  }
+
+  .page5-hint {
+    font-size: 1.05rem !important;
+    bottom: 6rem !important;
+    padding: 0 20px;
+  }
+}
+
+
+/* iPhone nhỏ */
+@media (max-width: 390px) {
+
+  .page5-candle-inner {
+    width: 96vw !important;
+  }
+
+  .page5-flame-canvas {
+    width: 240% !important;
+    top: 2% !important;
+  }
+}
