@@ -737,6 +737,16 @@ function playPage5() {
   page5ClearTimeouts();
 
 
+  // QUAN TRỌNG (Safari/iOS): phải xin quyền mic + tạo AudioContext
+  // NGAY trong call stack đồng bộ của cú tap dẫn tới playPage5().
+  // Nếu để trong setTimeout (như page5StartCandleScene phía dưới),
+  // Safari coi đó là không có user gesture và AudioContext sẽ bị
+  // treo vĩnh viễn ở trạng thái "suspended" → mic không bao giờ
+  // đọc được âm lượng, dù đã cấp quyền.
+  page5InitCandleOnce();
+  page5RequestAudioAccess();
+
+
   page5Intro.classList.remove(
     "is-hidden"
   );

@@ -65,6 +65,18 @@
   const heroDescriptionEl = document.querySelector("#hero .description");
   const heroStartTextEl = document.querySelector("#hero .start span");
   const heroStartArrowEl = document.querySelector("#hero .start b");
+  const heroContentEl = document.querySelector("#hero .content");
+
+  // ---------- Che khối content ngay từ đầu bằng CSS thuần ----------
+  // KHÔNG đụng tới thời điểm/logic tách chữ (page1Init/playPage1 vẫn chạy
+  // "lười" y hệt bản gốc, đúng lúc hero.enter() gọi lần đầu — đổi thời
+  // điểm đó từng gây hỏng animation). Vấn đề gốc chỉ là: từ lúc trang tải
+  // xong tới lúc bấm "Bắt đầu", h1/description vẫn hiển thị TĨNH (chưa
+  // tách chữ) — nếu preload không che kín 100% sẽ lộ chữ tĩnh ra ngoài.
+  // Ta ẩn hẳn cả khối .content bằng opacity ngay từ đầu; playPage1() sẽ tự
+  // mở lại opacity này ở bước đầu tiên, sau khi chữ đã được tách + ẩn
+  // từng ký tự — nên không có khung hình nào lộ chữ tĩnh, chưa animate.
+  if (heroContentEl) heroContentEl.style.opacity = "0";
 
   // ---------- Tách chữ cái ----------
   // Đệ quy qua các text-node của root, thay mỗi text-node bằng chuỗi span
@@ -258,6 +270,12 @@
     page1Init();
     page1ClearTimeouts();
     page1HideAllInstant();
+
+    // Chữ (từng ký tự) đã ở trạng thái ẩn ngay phía trên — giờ mới an
+    // toàn để mở khối .content ra (nếu đang bị ẩn từ đầu do chưa từng
+    // chạy qua playPage1() lần nào). Làm ngay sau page1HideAllInstant()
+    // để không có khung hình nào lộ chữ tĩnh chưa tách.
+    if (heroContentEl) heroContentEl.style.opacity = "";
 
     const [line1, line2, line3, description, buttonText] = page1Groups;
 

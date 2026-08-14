@@ -45,7 +45,19 @@ class StoryController {
 
     // Mỗi đoạn "nảy" vào lần lượt cách nhau một nhịp nhỏ, thay vì
     // cùng mờ dần vào một lúc như transition CSS mặc định.
-    if (motionAnimate && !prefersReducedMotion && this.fills.length) {
+    // Phải check ĐỦ CẢ 3 hàm (motionAnimate/motionStagger/motionSpring) —
+    // nếu thư viện Motion tải thiếu/lỗi (CDN chặn, đổi API bản "latest"...)
+    // mà chỉ check mỗi motionAnimate, gọi motionStagger()/motionSpring()
+    // undefined bên dưới sẽ throw NGAY TRONG show(), cắt đứt toàn bộ phần
+    // còn lại của start() (goTo(0), tức là toàn bộ animation hero) mà
+    // không có lỗi nào lộ rõ ràng ngoài console.
+    if (
+      motionAnimate &&
+      motionStagger &&
+      motionSpring &&
+      !prefersReducedMotion &&
+      this.fills.length
+    ) {
       const segments = this.fills
         .map((fill) => fill.closest(".story-bar__seg"))
         .filter(Boolean);
@@ -373,8 +385,18 @@ function runPreload() {
 }
 
 function dismissPreloadScreen() {
+  // Bỏ focus khỏi nút trước — nếu không, Chrome sẽ CHẶN việc set
+  // aria-hidden vì phần tử đang giữ focus vẫn nằm bên trong (cảnh báo
+  // "Blocked aria-hidden on an element because its descendant retained
+  // focus"), khiến preloadScreenEl không thực sự được gỡ khỏi cây
+  // accessibility đúng cách.
+  preloadStartBtn?.blur();
+
   preloadScreenEl?.classList.add("is-hidden");
   preloadScreenEl?.setAttribute("aria-hidden", "true");
+  // inert chặn luôn cả việc focus/tương tác vào phần tử đã ẩn (mạnh hơn
+  // aria-hidden, được hỗ trợ tốt trên trình duyệt hiện đại).
+  preloadScreenEl?.setAttribute("inert", "");
   // Dọn hẳn khỏi DOM sau khi fade-out xong (khớp với transition .6s ở CSS).
   setTimeout(() => preloadScreenEl?.remove(), 650);
 }
@@ -391,6 +413,13 @@ preloadStartBtn?.addEventListener("click", () => {
   audioManager.primeAllExcept("hero");
 
   storyController.start();
+
+  // Gọi animation chữ hero NGAY tại đây, trong cùng cú click — không chờ
+  // requestAnimationFrame bên trong hero.enter() nữa (thứ tự đó không
+  // đáng tin cậy được). storyController.start() ở trên đã set
+  // document.body[data-view="hero"] xong nên gọi playPage1() ngay sau đó
+  // là an toàn.
+  playPage1();
 });
 
 runPreload().finally(() => {

@@ -146,7 +146,7 @@ const startButton = document.getElementById("start");
 startButton.addEventListener("click", () => {
   // Navigation is handled only by the global swipe handler in main.js.
 
-  if (motionAnimate && !prefersReducedMotion) {
+  if (motionAnimate && motionSpring && !prefersReducedMotion) {
     // Spring thật (khối lượng/độ cứng/giảm chấn) thay vì cubic-bezier giả lập —
     // cảm giác nảy tự nhiên hơn khi nhấn nút.
     motionAnimate(
