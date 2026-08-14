@@ -267,15 +267,16 @@
   // nhóm tự cách nhau thêm staggerMs nữa theo thứ tự xáo ngẫu nhiên.
   // ============================================================
   function playPage1() {
-    page1Init();
-    page1ClearTimeouts();
-    page1HideAllInstant();
-
-    // Chữ (từng ký tự) đã ở trạng thái ẩn ngay phía trên — giờ mới an
-    // toàn để mở khối .content ra (nếu đang bị ẩn từ đầu do chưa từng
-    // chạy qua playPage1() lần nào). Làm ngay sau page1HideAllInstant()
-    // để không có khung hình nào lộ chữ tĩnh chưa tách.
-    if (heroContentEl) heroContentEl.style.opacity = "";
+    // try/finally: đảm bảo khối .content LUÔN được mở opacity ra, kể cả
+    // khi page1Init()/page1HideAllInstant() lỡ throw lỗi vì lý do gì đó —
+    // tránh trang bị kẹt trắng/rỗng vĩnh viễn thay vì chỉ thiếu animation.
+    try {
+      page1Init();
+      page1ClearTimeouts();
+      page1HideAllInstant();
+    } finally {
+      if (heroContentEl) heroContentEl.style.opacity = "";
+    }
 
     const [line1, line2, line3, description, buttonText] = page1Groups;
 

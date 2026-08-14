@@ -45,32 +45,34 @@ class StoryController {
 
     // Mỗi đoạn "nảy" vào lần lượt cách nhau một nhịp nhỏ, thay vì
     // cùng mờ dần vào một lúc như transition CSS mặc định.
-    // Phải check ĐỦ CẢ 3 hàm (motionAnimate/motionStagger/motionSpring) —
-    // nếu thư viện Motion tải thiếu/lỗi (CDN chặn, đổi API bản "latest"...)
-    // mà chỉ check mỗi motionAnimate, gọi motionStagger()/motionSpring()
-    // undefined bên dưới sẽ throw NGAY TRONG show(), cắt đứt toàn bộ phần
-    // còn lại của start() (goTo(0), tức là toàn bộ animation hero) mà
-    // không có lỗi nào lộ rõ ràng ngoài console.
-    if (
-      motionAnimate &&
-      motionStagger &&
-      motionSpring &&
-      !prefersReducedMotion &&
-      this.fills.length
-    ) {
-      const segments = this.fills
-        .map((fill) => fill.closest(".story-bar__seg"))
-        .filter(Boolean);
+    // Bọc try/catch: đây CHỈ LÀ hiệu ứng trang trí cho thanh tiến trình,
+    // tuyệt đối không được phép làm gãy phần còn lại của start()/goTo()
+    // (tức là animation hero) nếu thư viện Motion tải lỗi/thiếu hàm/API
+    // không khớp phiên bản CDN "latest".
+    try {
+      if (
+        motionAnimate &&
+        motionStagger &&
+        motionSpring &&
+        !prefersReducedMotion &&
+        this.fills.length
+      ) {
+        const segments = this.fills
+          .map((fill) => fill.closest(".story-bar__seg"))
+          .filter(Boolean);
 
-      motionAnimate(
-        segments,
-        { scaleY: [0, 1], opacity: [0, 1] },
-        {
-          delay: motionStagger(0.05),
-          duration: 0.5,
-          easing: motionSpring({ stiffness: 300, damping: 20 })
-        }
-      );
+        motionAnimate(
+          segments,
+          { scaleY: [0, 1], opacity: [0, 1] },
+          {
+            delay: motionStagger(0.05),
+            duration: 0.5,
+            easing: motionSpring({ stiffness: 300, damping: 20 })
+          }
+        );
+      }
+    } catch (err) {
+      console.error("StoryController.show(): lỗi khi chạy hiệu ứng Motion cho thanh tiến trình (bỏ qua, không chặn animation hero):", err);
     }
   }
 
@@ -406,20 +408,40 @@ preloadStartBtn?.addEventListener("click", () => {
 
   dismissPreloadScreen();
 
-  // 🔊 PHÁT 01.mp3 NGAY KHI BẤM "BẮT ĐẦU"
-  audioManager.play("hero");
+  // Mỗi bước rủi ro (audio, thư viện Motion bên trong storyController)
+  // được bọc try/catch RIÊNG — để nếu một bước nào đó throw lỗi (audio
+  // bị chặn, Motion CDN lỗi/thiếu hàm...), các bước còn lại — quan trọng
+  // nhất là playPage1() ở cuối — vẫn LUÔN được chạy, không bị cắt ngang
+  // giữa chừng như trước (đó là lý do gốc khiến phải vuốt mới thấy
+  // animation: một lỗi phía trên đã chặn code chạy tới đây).
 
-  // Mồi các track còn lại để chuyển trang tự động không bị chặn
-  audioManager.primeAllExcept("hero");
+  try {
+    // 🔊 PHÁT 01.mp3 NGAY KHI BẤM "BẮT ĐẦU"
+    audioManager.play("hero");
+    // Mồi các track còn lại để chuyển trang tự động không bị chặn
+    audioManager.primeAllExcept("hero");
+  } catch (err) {
+    console.error("Lỗi khi phát/mồi audio (bỏ qua, không chặn animation):", err);
+  }
 
-  storyController.start();
+  try {
+    storyController.start();
+  } catch (err) {
+    console.error("Lỗi khi chạy storyController.start() (bỏ qua, không chặn animation hero):", err);
+    // storyController.start() lỗi giữa chừng vẫn có thể đã set data-view
+    // rồi mới throw — set lại đây cho chắc để hero chắc chắn đang hiển thị.
+    document.body.setAttribute("data-view", "hero");
+  }
 
   // Gọi animation chữ hero NGAY tại đây, trong cùng cú click — không chờ
   // requestAnimationFrame bên trong hero.enter() nữa (thứ tự đó không
-  // đáng tin cậy được). storyController.start() ở trên đã set
-  // document.body[data-view="hero"] xong nên gọi playPage1() ngay sau đó
-  // là an toàn.
-  playPage1();
+  // đáng tin cậy được, và giờ được bọc try/catch ở trên nên luôn chạy
+  // tới được dòng này).
+  try {
+    playPage1();
+  } catch (err) {
+    console.error("Lỗi khi chạy playPage1():", err);
+  }
 });
 
 runPreload().finally(() => {
