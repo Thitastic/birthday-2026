@@ -114,7 +114,7 @@ const morphEl = document.getElementById("morphText");
 
 // 26 năm quy đổi qua từng đơn vị thời gian, kể từ ngày bạn đến với cuộc sống này.
 const timePhrases = [
-  { number: "26", unit: "NĂM" },
+  { number: "27", unit: "NĂM" },
   { number: "9.862", unit: "NGÀY" },
   { number: "236.688", unit: "GIỜ" },
   { number: "14.201.280", unit: "PHÚT" },
