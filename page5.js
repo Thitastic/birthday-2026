@@ -45,15 +45,18 @@ let page5CandleBlown = false;
 let page5BlowStart = 0;
 
 // Thổi liên tục khoảng 0.45 giây sẽ tắt nến
-const PAGE5_BLOW_DURATION_MS = 450;
+const PAGE5_BLOW_DURATION_MS = 280;
 
 // Sau khi tắt nến, giữ hint "đã thổi tắt" một lúc rồi mới sang trang 6
 const PAGE5_AFTER_BLOW_HOLD_MS = 1600;
 
-const PAGE5_ALPHA = 0.5;
+const PAGE5_ALPHA = 0.35;
 
-// Micro điện thoại thường thu âm nhỏ hơn máy tính
-const PAGE5_THRESHOLD = 0.035;
+// Safari/iPhone thường trả RMS khá thấp.
+// Dùng ngưỡng thấp hơn và lọc dải tần của tiếng thổi.
+const PAGE5_THRESHOLD = 0.012;
+const PAGE5_BLOW_MULTIPLIER = 2.2;
+let page5NoiseFloor = 0.004;
 
 
 // ============================================================
@@ -67,7 +70,19 @@ const page5IsBlowing = () => {
     PAGE5_ALPHA * page5Meter.volume +
     (1.0 - PAGE5_ALPHA) * page5Lowpass;
 
-  return page5Lowpass > PAGE5_THRESHOLD;
+  // Tự học mức ồn nền khi người dùng chưa thổi.
+  if (!page5BlowStart) {
+    page5NoiseFloor =
+      page5NoiseFloor * 0.97 +
+      page5Lowpass * 0.03;
+  }
+
+  const dynamicThreshold = Math.max(
+    PAGE5_THRESHOLD,
+    page5NoiseFloor * PAGE5_BLOW_MULTIPLIER
+  );
+
+  return page5Lowpass > dynamicThreshold;
 };
 
 // Kết quả isBlowing() của frame hiện tại, tính đúng 1 lần trong
@@ -84,25 +99,30 @@ let page5BlowingThisFrame = false;
 function page5UpdateMeterVolume() {
   if (!page5Analyser || !page5Meter) return;
 
-  page5Analyser.getFloatTimeDomainData(
-    page5AnalyserBuffer
-  );
-
   let sumSquares = 0;
 
-  for (
-    let i = 0;
-    i < page5AnalyserBuffer.length;
-    i++
-  ) {
-    sumSquares +=
-      page5AnalyserBuffer[i] *
-      page5AnalyserBuffer[i];
+  // getFloatTimeDomainData không ổn định trên một số Safari.
+  // Ưu tiên Float32 nhưng có fallback sang Uint8.
+  if (typeof page5Analyser.getFloatTimeDomainData === "function") {
+    page5Analyser.getFloatTimeDomainData(page5AnalyserBuffer);
+
+    for (let i = 0; i < page5AnalyserBuffer.length; i++) {
+      const sample = page5AnalyserBuffer[i];
+      sumSquares += sample * sample;
+    }
+  } else {
+    const bytes = new Uint8Array(page5Analyser.fftSize);
+    page5Analyser.getByteTimeDomainData(bytes);
+
+    for (let i = 0; i < bytes.length; i++) {
+      const sample = (bytes[i] - 128) / 128;
+      sumSquares += sample * sample;
+    }
   }
 
   page5Meter.volume = Math.sqrt(
     sumSquares /
-    page5AnalyserBuffer.length
+    page5Analyser.fftSize
   );
 }
 
@@ -204,19 +224,23 @@ function page5SetAudioStream(stream) {
     );
 
 
-  // Lọc tiếng trầm để nhận hơi thổi
-  const filter =
+  // Tiếng thổi có năng lượng rộng hơn 400 Hz.
+  // Chỉ low-pass 400 Hz làm Safari/iPhone dễ bỏ mất phần lớn tiếng thổi.
+  const highpass =
     page5AudioContext.createBiquadFilter();
+  highpass.type = "highpass";
+  highpass.frequency.value = 80;
 
-  filter.type = "lowpass";
-  filter.frequency.value = 400;
-
+  const lowpass =
+    page5AudioContext.createBiquadFilter();
+  lowpass.type = "lowpass";
+  lowpass.frequency.value = 2000;
 
   page5Analyser =
     page5AudioContext.createAnalyser();
 
   page5Analyser.fftSize = 512;
-  page5Analyser.smoothingTimeConstant = 0.18;
+  page5Analyser.smoothingTimeConstant = 0.05;
 
   page5AnalyserBuffer =
     new Float32Array(
@@ -227,9 +251,9 @@ function page5SetAudioStream(stream) {
     volume: 0
   };
 
-
-  page5Microphone.connect(filter);
-  filter.connect(page5Analyser);
+  page5Microphone.connect(highpass);
+  highpass.connect(lowpass);
+  lowpass.connect(page5Analyser);
 }
 
 
@@ -257,6 +281,7 @@ function page5StopAudio() {
 
   page5MicRequested = false;
   page5Lowpass = 0;
+  page5NoiseFloor = 0.004;
 }
 
 
